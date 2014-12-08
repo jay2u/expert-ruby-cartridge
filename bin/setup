@@ -18,11 +18,6 @@ for dir in etc; do
     cp -Lr $OPENSHIFT_RUBY_DIR/versions/$version/$dir/* $OPENSHIFT_RUBY_DIR/$dir
 done
 
-# Create/truncate Apache PassEnv configuration file
-echo > $OPENSHIFT_RUBY_DIR/etc/conf.d/passenv.conf
-
-echo > $OPENSHIFT_RUBY_DIR/etc/conf.d/server-status.conf
-
 if [ $version == '1.9' ]; then
     # Cleanup from version 0.0.1
     env_dir="${OPENSHIFT_RUBY_DIR}/env"
@@ -52,9 +47,17 @@ if [ $version == '2.0' ]; then
     # Standard ENV var for the SECRET > rails 4.0
     set_env_var 'SECRET_KEY_BASE' $OPENSHIFT_SECRET_TOKEN $env_dir
     scl enable ruby200 ror40 "printenv MANPATH"         > $OPENSHIFT_RUBY_DIR/env/MANPATH
-
-
 fi
+
+mkdir -p $OPENSHIFT_RUBY_DIR/tmp
+
+# default values
+echo -n "default" > ${OPENSHIFT_RUBY_DIR}/env/OPENSHIFT_RUBY_RUNNING_PLATFORM
+echo -n "passenger" > ${OPENSHIFT_RUBY_DIR}/env/OPENSHIFT_RUBY_RUNNING_SERVER
+
+
+source "${OPENSHIFT_RUBY_DIR}/lib/jruby"
+jruby-install
 
 cp versions/shared/etc/conf.d/performance.conf.erb conf/performance.conf.erb
 cp conf/performance.conf.erb conf/performance.conf.erb.hidden

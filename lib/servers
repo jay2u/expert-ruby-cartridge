@@ -1,0 +1,93 @@
+#!/bin/bash
+source "${OPENSHIFT_RUBY_DIR}/lib/ruby_context"
+
+function set_active_platform() {
+    if [ ! -z "$1" ]
+    then
+        echo -n $1 > ${OPENSHIFT_RUBY_DIR}/env/OPENSHIFT_RUBY_RUNNING_PLATFORM
+        export OPENSHIFT_RUBY_RUNNING_PLATFORM="$1"
+    fi
+}
+
+function set_active_server() {
+    if [ ! -z "$1" ]
+    then
+        echo -n $1 > ${OPENSHIFT_RUBY_DIR}/env/OPENSHIFT_RUBY_RUNNING_SERVER
+        export OPENSHIFT_RUBY_RUNNING_SERVER="$1"
+    fi
+}
+
+
+function is_server_installed() {
+	case $1 in
+		"passenger"|"custom")
+			;;
+		"puma"|"thin"|"unicorn"|"rainbows")
+			gem_exists "$1"
+			;;
+		*)
+			echo "WARN: Unknown \"$1\" server" >&2
+			exit 1
+			;;
+	esac
+}
+
+function gem_exists() {
+	[ "`ruby_context "gem list -i $1"`" == "true" ]
+}
+
+# if bundler is used, it's needed to run gems in bundle context
+function run_command() {
+	if is_bundler_used
+	then
+	    if [ "$OPENSHIFT_RUBY_RUNNING_PLATFORM" = "jruby" ]
+        then
+          ruby_context "bundle exec $1" # needed because of newest version of bundler
+        else
+		  ruby_context "bundle exec '$1'"
+		fi
+	else
+		ruby_context "$1"
+	fi
+
+}
+
+function is_bundler_used() {
+	[ -f ${OPENSHIFT_REPO_DIR}/Gemfile ]	
+}
+
+
+function server-control() {
+  if [ "$1" = "custom" ]
+  then
+    if [ ! -z "$2" ]
+    then
+        ${OPENSHIFT_REPO_DIR}/.openshift/action_hooks/server_control $2
+    fi
+  else
+    if [ ! -z "$1" ] && [ ! -z "$2" ]
+    then
+        ${OPENSHIFT_RUBY_DIR}/servers/$1/control $2
+    fi
+  fi
+
+}
+
+
+# limit compatibility
+function no-jruby() {
+  if [ "$OPENSHIFT_RUBY_RUNNING_PLATFORM" = "jruby" ]
+  then
+    echo "This server is not supported by JRuby."
+    exit 1
+  fi
+}
+
+function only-jruby() {
+  if [ "$OPENSHIFT_RUBY_RUNNING_PLATFORM"  != "jruby" ]
+  then
+    echo "This server supports only JRuby"
+    exit 1
+  fi
+}
+

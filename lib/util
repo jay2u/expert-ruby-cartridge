@@ -1,6 +1,8 @@
 #!/bin/bash
 # Utility functions for use in the cartridge scripts.
 
+source "${OPENSHIFT_RUBY_DIR}/lib/servers"
+
 # BZ 1030873 - need nodejs context for bundle exec
 source "${OPENSHIFT_RUBY_DIR}/lib/ruby_context"
 

@@ -1,9 +1,8 @@
 ---
-Name: ruby
+Name: expert-ruby
 Cartridge-Short-Name: RUBY
-Display-Name: Ruby 1.9
-Description: Ruby is a dynamic, reflective, general-purpose object-oriented programming
-  language. Popular development frameworks include Ruby on Rails and Sinatra.
+Display-Name: Expert Ruby cartridge
+Description: Advanced Ruby cartridge with additional support for many popular webservers and JRuby implementation.
 Version: '1.9'
 Versions:
 - '2.0'
@@ -12,12 +11,9 @@ Versions:
 License: Ruby BSDL
 License-Url: http://www.ruby-lang.org/en/about/license.txt
 Vendor: ruby.org
-Cartridge-Version: 0.0.23
-Compatible-Versions:
-- 0.0.20
-- 0.0.21
-- 0.0.22
-Cartridge-Vendor: redhat
+Cartridge-Version: 0.0.1
+Compatible-Versions: []
+Cartridge-Vendor: jay2u
 Categories:
 - service
 - ruby
@@ -25,6 +21,37 @@ Categories:
 Website: http://www.ruby-lang.org
 Help-Topics:
   Developer Center: https://www.openshift.com/developers
+Cart-Data:
+- Key: OPENSHIFT_TMP_DIR
+  Type: environment
+  Description: Directory to store application temporary files.
+- Key: OPENSHIFT_REPO_DIR
+  Type: environment
+  Description: Application root directory where application files reside. This directory
+    is reset every time you do a git-push
+- Key: OPENSHIFT_RUBY_PORT
+  Type: environment
+  Description: Internal port to which the web-framework binds to.
+- Key: OPENSHIFT_RUBY_IP
+  Type: environment
+  Description: Internal IP to which the web-framework binds to.
+- Key: OPENSHIFT_APP_DNS
+  Type: environment
+  Description: Fully qualified domain name for the application.
+- Key: OPENSHIFT_APP_NAME
+  Type: environment
+  Description: Application name
+- Key: OPENSHIFT_DATA_DIR
+  Type: environment
+  Description: Directory to store application data files. Preserved across git-pushes.
+    Not shared across gears.
+- Key: OPENSHIFT_APP_UUID
+  Type: environment
+  Description: Unique ID which identified the application. Does not change between
+    gears.
+- Key: OPENSHIFT_GEAR_UUID
+  Type: environment
+  Description: Unique ID which identified the gear. This value changes between gears.  
 Publishes: 
 Subscribes:
   set-env:

@@ -3,76 +3,92 @@
 source $OPENSHIFT_CARTRIDGE_SDK_BASH
 source "${OPENSHIFT_RUBY_DIR}/lib/util"
 source "${OPENSHIFT_RUBY_DIR}/lib/ruby_context"
+source "${OPENSHIFT_RUBY_DIR}/lib/servers"
 
-HTTPD_CFG_DIR=${OPENSHIFT_RUBY_DIR}/etc/conf.d
-HTTPD_CFG_FILE=$OPENSHIFT_RUBY_DIR/etc/conf/httpd_nolog.conf
-HTTPD_PASSENV_FILE=${HTTPD_CFG_DIR}/passenv.conf
-HTTPD_PID_FILE=$OPENSHIFT_RUBY_DIR/run/httpd.pid
-RAILS_ENV=${RAILS_ENV:-production}
+if [ -z "$OPENSHIFT_RUBY_SERVER" ]
+then
+  OPENSHIFT_RUBY_SERVER="passenger" #by default
 
-# construct the configuration directives for httpd
-HTTPD_CMD_CONF="-C 'Include $OPENSHIFT_RUBY_DIR/etc/conf.d/*.conf' -f $HTTPD_CFG_FILE"
-for dir in /etc/openshift/cart.conf.d/httpd{,/ruby} ; do
-    [ -d $dir ] && HTTPD_CMD_CONF="$HTTPD_CMD_CONF -c 'Include $dir/*.conf'"
-done
+  # ~/.env/user_vars are displayed to user through 'rhc env list' command
+  echo "passenger" > $OPENSHIFT_HOMEDIR/.env/user_vars/OPENSHIFT_RUBY_SERVER
 
-# Use a custom directory for Passenger's temp files to work around:
-# https://code.google.com/p/phusion-passenger/issues/detail?id=961
-#
-# The directory it creates automatically in /tmp has setuid which
-# triggers the bug when using graceful operations.
-[ -d /tmp/passenger ] || mkdir /tmp/passenger
+  set_active_server "passenger"
+fi
+
+if [ -z "$OPENSHIFT_RUBY_PLATFORM" ]
+then
+  OPENSHIFT_RUBY_PLATFORM="default"
+
+  echo -n "default" > $OPENSHIFT_HOMEDIR/.env/user_vars/OPENSHIFT_RUBY_PLATFORM
+
+  set_active_platform "default"
+fi
+
+if [ "${OPENSHIFT_RUBY_PLATFORM}"  != "jruby" -a "${OPENSHIFT_RUBY_PLATFORM}" != "default" ]; then
+  echo "OPENSHIFT_RUBY_PLATFORM supports only values: default or jruby"
+  exit 1
+fi
 
 function start() {
-    if process_running 'httpd', $HTTPD_PID_FILE; then
-      if ruby_in_development_mode && httpd_in_development_mode; then
-        echo "Ruby cartridge in development mode, skipping start..."
-        return 0
-      else
-        update_rails_env
-      fi
+    echo "Starting Ruby cartridge using ${OPENSHIFT_RUBY_SERVER} webserver."
+
+
+    if [ "${OPENSHIFT_RUBY_RUNNING_PLATFORM}" = "jruby" ]
+    then
+      echo "Cartridge is running on JRuby."
     fi
-    echo "Starting Ruby cartridge"
-    write_server_status ${HTTPD_CFG_DIR}/server-status.conf
-    mkdir -p ${OPENSHIFT_REPO_DIR}public
-    write_httpd_passenv $HTTPD_PASSENV_FILE
-    ensure_valid_httpd_process "$HTTPD_PID_FILE" "$HTTPD_CFG_FILE"
-    update_passenger_performance
-    # Force httpd into its own pgroup, as httpd is hard-coded to TERM everything in
-    # its pgroup during shutdown (even while foregrounded)
-    set -m
-    ruby_context "umask 002 &>/dev/null ; RAILS_ENV=${RAILS_ENV:-production} nohup /usr/sbin/httpd $HTTPD_CMD_CONF -D FOREGROUND |& /usr/bin/logshifter -tag ruby &"
-    set +m
-    [ "$?" == "0" ] && wait_for_pid_file $HTTPD_PID_FILE
+  
+    if ! is_server_installed $OPENSHIFT_RUBY_SERVER && ! is_bundler_used
+    then
+      echo "Installing ${OPENSHIFT_RUBY_SERVER} ..."
+      ${OPENSHIFT_RUBY_DIR}/servers/${OPENSHIFT_RUBY_SERVER}/install
+      echo "${OPENSHIFT_RUBY_SERVER} was successfully installed."
+    fi
+
+    pushd $OPENSHIFT_REPO_DIR 1>/dev/null
+    server-control $OPENSHIFT_RUBY_SERVER start
+    popd 1>/dev/null    
+
+    echo -n "${OPENSHIFT_RUBY_SERVER}" > $OPENSHIFT_RUBY_DIR/env/OPENSHIFT_RUBY_RUNNING_SERVER
 }
 
 function stop() {
-    if ruby_in_development_mode; then
-      if httpd_in_development_mode; then
-        echo "Ruby cartridge in development mode, skipping stop..."
-        return 0
-      fi
-    fi
-    echo "Stopping Ruby cartridge"
-    ensure_valid_httpd_pid_file "$HTTPD_PID_FILE" "$HTTPD_CFG_FILE"
-    if [ -f "$HTTPD_PID_FILE" ]; then
-      shutdown_httpd_graceful $HTTPD_PID_FILE
+    if [ "$OPENSHIFT_RUBY_RUNNING_SERVER" != "none" ]
+    then
+        echo "Stopping ${OPENSHIFT_RUBY_RUNNING_SERVER} server"
+        pushd $OPENSHIFT_REPO_DIR 1>/dev/null
+        server-control $OPENSHIFT_RUBY_RUNNING_SERVER stop
+        popd 1>/dev/null
+        echo -n "none" > $OPENSHIFT_RUBY_DIR/env/OPENSHIFT_RUBY_RUNNING_SERVER
     fi
 }
 
 function restart() {
-    echo "${1}ing Ruby cartridge"
-    mkdir -p ${OPENSHIFT_REPO_DIR}public
-    write_httpd_passenv $HTTPD_PASSENV_FILE
-    oo-erb ${OPENSHIFT_RUBY_DIR}conf/performance.conf.erb.hidden > $HTTPD_CFG_DIR/performance.conf
-    [ -d ${OPENSHIFT_REPO_DIR}/tmp ] && touch ${OPENSHIFT_REPO_DIR}/tmp/restart.txt
-    ensure_httpd_restart_succeed "$HTTPD_PID_FILE" "$HTTPD_CFG_FILE"
-    if [ -f "$HTTPD_PID_FILE" ]; then
-      httpd_pid=`cat "$HTTPD_PID_FILE" 2> /dev/null`
-      kill -HUP $httpd_pid
-    else
+    echo "${1}ing Ruby cart"
+
+    #if server is changed, we will stop the running server and start newly defined server, otherwise just restart current server
+    if [ $OPENSHIFT_RUBY_RUNNING_SERVER != $OPENSHIFT_RUBY_SERVER ]
+    then
+      stop
       start
-    fi
+    else
+      pushd $OPENSHIFT_REPO_DIR 1>/dev/null
+      server-control $OPENSHIFT_RUBY_SERVER restart
+      popd 1>/dev/null
+    fi 
+}
+
+function server() {
+  client_result "Application is using ${OPENSHIFT_RUBY_RUNNING_SERVER} server."
+}
+
+function ruby-implementation() {
+  if [ "${OPENSHIFT_RUBY_RUNNING_PLATFORM}" = "jruby" ]
+  then
+    client_result "Cartridge is running on JRuby."
+  else
+    client_result "Cartridge is running on default implementation of ruby."
+  fi
 }
 
 function status() {

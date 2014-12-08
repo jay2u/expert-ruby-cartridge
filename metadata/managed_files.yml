@@ -1,5 +1,7 @@
 ---
 locked_files:
+- .jruby/
+- .jruby/**/*
 - bin/
 - bin/*
 - metadata/
@@ -10,14 +12,17 @@ locked_files:
 - conf/performance.conf.erb.hidden
 - etc/
 - etc/conf/
-- etc/conf/*
+#- etc/conf/*
 - etc/conf.d/
 - etc/conf.d/openshift.conf
 - env/
 - env/OPENSHIFT_RUBY_DIR
-- env/PASSENGER_TEMP_DIR
+- env/OPENSHIFT_RUBY_LOG_DIR
+- servers/
+- servers/**/*
 processed_templates:
 - 'etc/conf.d/*.erb'
+- 'servers/*/*.erb'
 setup_rewritten:
 # This can be safely removed in Sprint 46+
 - versions/1.8/template/.openshift
