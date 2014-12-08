@@ -49,7 +49,7 @@ if [ $version == '2.0' ]; then
     scl enable ruby200 ror40 "printenv MANPATH"         > $OPENSHIFT_RUBY_DIR/env/MANPATH
 fi
 
-mkdir -p $OPENSHIFT_RUBY_DIR/tmp
+mkdir -p $OPENSHIFT_RUBY_DIR/tmp 2>&1 >/dev/null
 
 # default values
 echo -n "default" > ${OPENSHIFT_RUBY_DIR}/env/OPENSHIFT_RUBY_RUNNING_PLATFORM
