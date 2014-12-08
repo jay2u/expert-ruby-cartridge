@@ -1,3 +1,5 @@
+> This is pbrazdil's work applied by hand onto the latest origin ruby cartridge. This version should scale better. Especially in combination with the mysql2 gem.
+
 # OpenShift Advanced Ruby Cartridge
 The ruby cartridge, which is used in Openshift, supports by default only Passenger server running on Apache. But this Advanced Ruby cartridge allows you to use other popular servers, to be specific **puma**, **unicorn**, **thin**, **rainbows** and **passenger**. And you are allowed to switch Ruby platform to **JRuby**.
 
